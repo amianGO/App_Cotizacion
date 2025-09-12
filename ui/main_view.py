@@ -7,6 +7,8 @@ from ui.dialogs import (
     CreateSupplierDialog, DeleteSupplierDialog
 )
 
+from logic import data_manager, email_sender
+
 class MainApp(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -149,16 +151,20 @@ class MainApp(tk.Tk):
             (self.selected_suppliers.add(name) if var.get() else self.selected_suppliers.discard(name))
     
     def send_action(self):
-        """ Por ahora solo mostramos seleccion (Luego conectamos email)"""
-        products = list(self.selected_products)
-        suppliers = list(self.selected_suppliers)
+        """ Enviar los correos a los proveedores seleccionado """
+        products = data_manager.get_products_by_names(self.selected_products)
+        suppliers = data_manager.get_suppliers_by_names(self.selected_suppliers)
         
         if not products or not suppliers:
-            messagebox.showwarning("Advertencia", "Selecciona al menos un producto y un proveedor.")
+            messagebox.showwarning("Advertencia", "Selecciona almenos un Producto y un Proveedor")
             return
         
-        message = f"Productos: {products}\nProveedores: {suppliers}"
-        messagebox.showinfo("Seleccion",message)
+        try:
+            cc_email = "damiangaviria@gmail.com"
+            email_sender.send_bulk_emails(suppliers, products, cc_email)
+            messagebox.showinfo("Exito", "Correos enviados correctamente.")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
         
     
     # ========== CRUD (Solo prints por ahora) ==========

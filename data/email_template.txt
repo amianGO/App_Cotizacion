@@ -1,10 +1,8 @@
 Estimado/a {nombre_proveedor}
 
-Espero se ecnuentre muy bien.
+Espero se encuentre muy bien.
 
 Nos gustaria solicitar una cotizacion de los siguientes productos:
 {lista_Productos}
 
-Quedamos atentos a su pronta respuesta
-
-Firma
+Quedamos atentos a su pronta respuesta.
