@@ -1,0 +1,4 @@
+openpyxl    # Para manejar archivos excel
+pandas      # Para manipular los datos de excel facilmente
+pywin32     # Para integrar con Outlook en windows 
+tkinter     # Interfaz grafica 
