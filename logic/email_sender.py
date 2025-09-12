@@ -53,7 +53,7 @@ def send_email(supplier_name: str, supplier_email: str, products: list[dict], cc
 
 def send_bulk_emails(
     suppliers: list[dict],
-    products: lisst[dict],
+    products: list[dict],
     cc_email: str = ""
 ) -> None:
     """ Envia correos personalizados a cada proveedor """
