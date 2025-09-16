@@ -33,6 +33,7 @@ class MainApp(tk.Tk):
         tk.Button(crud_frame, text = "Eliminar Producto", command = self.delete_product).pack(side = tk.LEFT, padx = 5)
         tk.Button(crud_frame, text = "Agregar Proveedor", command = self.create_supplier).pack(side = tk.LEFT, padx = 5)
         tk.Button(crud_frame, text = "Eliminar Proveedor", command = self.delete_supplier).pack(side = tk.LEFT, padx = 5)
+        tk.Button(crud_frame, text = "Diagnosticar Outlook", command = self.diagnose_outlook).pack(side = tk.LEFT, padx = 5)
         
         # ------ Frame Central ------
         central_frame = tk.Frame(self)
@@ -160,11 +161,19 @@ class MainApp(tk.Tk):
             return
         
         try:
-            cc_email = "damiangaviria@gmail.com"
+            cc_email = "damiangaviria8@gmail.com"
             email_sender.send_bulk_emails(suppliers, products, cc_email)
             messagebox.showinfo("Exito", "Correos enviados correctamente.")
         except Exception as e:
             messagebox.showerror("Error", str(e))
+    
+    def diagnose_outlook(self):
+        """ Diagnostica problemas con Outlook """
+        try:
+            diagnosis = email_sender.diagnose_outlook_issues()
+            messagebox.showinfo("Diagnóstico de Outlook", diagnosis)
+        except Exception as e:
+            messagebox.showerror("Error en diagnóstico", f"Error al diagnosticar Outlook: {str(e)}")
         
     
     # ========== CRUD (Solo prints por ahora) ==========
