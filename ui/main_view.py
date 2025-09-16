@@ -46,6 +46,15 @@ class MainApp(tk.Tk):
         self.supplier_frame = self.create_list_panel(central_frame, "Buscador de Proveedores")
         self.supplier_frame.pack(side = "left",expand = True, fill = "both", padx = 10)
         
+        # ------ Campo CC ------
+        cc_frame = tk.Frame(self)
+        cc_frame.pack(pady = 5)
+        
+        tk.Label(cc_frame, text = "CC (Copia):", font = ("Arial", 10, "bold")).pack(side = tk.LEFT, padx = 5)
+        self.cc_var = tk.StringVar(value = "damiangaviria8@gmail.com")
+        cc_entry = tk.Entry(cc_frame, textvariable = self.cc_var, width = 40)
+        cc_entry.pack(side = tk.LEFT, padx = 5)
+        
         # ------ Boton Enviar Cotizaciones ------
         send_btn = tk.Button(self, text = "Enviar Cotizaciones", command = self.send_action)
         send_btn.pack(pady = 10)
@@ -104,7 +113,7 @@ class MainApp(tk.Tk):
         df = data_manager.search_products(query) #df es el dataframe de productos y busqueda
         
         for _, row in df.iterrows():
-            name = row["Nombre"]
+            name = row["nombre"]
             var = tk.BooleanVar(value = (name in self.selected_products))
             cb = tk.Checkbutton(
                 self.product_frame.list_frame,
@@ -123,7 +132,7 @@ class MainApp(tk.Tk):
         df = data_manager.search_suppliers(query)
         
         for _, row in df.iterrows():
-            name = row["Nombre"]
+            name = row["nombre"]
             var = tk.BooleanVar(value = (name in self.selected_suppliers))
             cb = tk.Checkbutton(
                 self.supplier_frame.list_frame,
@@ -161,9 +170,21 @@ class MainApp(tk.Tk):
             return
         
         try:
-            cc_email = "damiangaviria8@gmail.com"
+            # Obtener el CC del campo de entrada
+            cc_email = self.cc_var.get().strip()
+            
+            # Validar que el CC no esté vacío
+            if not cc_email:
+                messagebox.showwarning("Advertencia", "Por favor ingresa un email para CC")
+                return
+            
+            # Validar formato básico del email
+            if "@" not in cc_email or "." not in cc_email:
+                messagebox.showwarning("Advertencia", "Por favor ingresa un email válido para CC")
+                return
+            
             email_sender.send_bulk_emails(suppliers, products, cc_email)
-            messagebox.showinfo("Exito", "Correos enviados correctamente.")
+            messagebox.showinfo("Exito", f"Correos enviados correctamente con CC: {cc_email}")
         except Exception as e:
             messagebox.showerror("Error", str(e))
     

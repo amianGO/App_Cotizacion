@@ -3,71 +3,57 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable, List, Dict
 import re
-
+import sqlite3
 import pandas as pd
 
-
-# --- Configuracion de rutas y Hojas ---
+# --- Configuracion de rutas y Base de Datos ---
 
 BASE_DIR = Path(__file__).resolve().parents[1]
-DB_PATH = BASE_DIR / "data" / "database.xlsx"
+DB_PATH = BASE_DIR / "data" / "database.db"
 
-SHEET_PRODUCTS = "Productos"
-SHEET_SUPPLIERS = "Proveedores"
+# Tablas y columnas
+TABLE_PRODUCTS = "productos"
+TABLE_SUPPLIERS = "proveedores"
 
-# Columnas esperadas en cada hoja
-
-COLUMNS_PRODUCTS = ["Nombre", "Descripcion"]
-COLUMNS_SUPPLIERS = ["Nombre", "Correo"]
+COLUMNS_PRODUCTS = ["id", "nombre", "descripcion"]
+COLUMNS_SUPPLIERS = ["id", "nombre", "correo"]
 
 # -------------------- Utilidades internas --------------------
 
-def _require_db_exists() -> None:
-    """ Verifica que la base de datos exista; si no, lanza un error claro."""
-    if not DB_PATH.exists():
-        raise FileNotFoundError(
-            f"No se encontro la base de datos en {DB_PATH}"
-            "Crea el archivo 'database.xlsx' en /data con las hojas "
-            f" '{SHEET_PRODUCTS}' ({', '.join(COLUMNS_PRODUCTS)}) y "
-            f" '{SHEET_SUPPLIERS}' ({', '.join(COLUMNS_SUPPLIERS)})- "
-        )
+def _get_connection() -> sqlite3.Connection:
+    """Obtiene una conexión a la base de datos SQLite"""
+    # Crear directorio si no existe
+    DB_PATH.parent.mkdir(exist_ok=True)
+    
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row  # Para acceso por nombre de columna
+    return conn
 
-def _read_sheet(sheet_name: str, expected_cols: List[str]) -> pd.DataFrame:
-    """Lee una hoja garantizando columnas y tipos como texto."""
-    _require_db_exists()
+def _init_database() -> None:
+    """Inicializa la base de datos con las tablas necesarias"""
+    conn = _get_connection()
     try:
-        df = pd.read_excel(DB_PATH, sheet_name = sheet_name, engine="openpyxl", dtype=str)
-    except ValueError as exc: # Hoja no encontrada
-        raise ValueError(
-            f"La Hoja '{sheet_name}' No existe en {DB_PATH}. "
-            "Verifica el nombre de la hoja."
-        ) from exc
-    
-    # Normalizamos: todo texto, sin NaN y columnas en el orden esperado
-    df = df.fillna("").astype(str)
-    
-    # Si faltan columnas obligatorias, error explicito
-    missing = [c for c in expected_cols if c not in df.columns]
-    if missing:
-        raise ValueError(
-            f"En la hoja '{sheet_name}' faltan columnas obligatorias: {missing}. "
-            f"Se esperaban: {expected_cols}"
-        )
-    
-    # Reordenamos y nos quedamos solo con las esperadas
-    df = df[expected_cols].copy()
-    return df
-
-
-def _write_sheet(df: pd.DataFrame, sheet_name: str) -> None:
-    """Escribre solo la hoja indicada y remplazamos la hoja especifica"""
-    _require_db_exists
-    #Escribimos en modo append y remplazamos la hoja especifica
-    
-    with pd.ExcelWriter(
-        DB_PATH, engine="openpyxl", mode="a", if_sheet_exists = "replace"
-    ) as writer:
-        df.to_excel(writer, index= False, sheet_name = sheet_name)
+        # Crear tabla de productos
+        conn.execute(f'''
+            CREATE TABLE IF NOT EXISTS {TABLE_PRODUCTS} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nombre TEXT NOT NULL UNIQUE,
+                descripcion TEXT DEFAULT ''
+            )
+        ''')
+        
+        # Crear tabla de proveedores
+        conn.execute(f'''
+            CREATE TABLE IF NOT EXISTS {TABLE_SUPPLIERS} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nombre TEXT NOT NULL UNIQUE,
+                correo TEXT NOT NULL
+            )
+        ''')
+        
+        conn.commit()
+    finally:
+        conn.close()
 
 def _normalize_text(s: str) -> str:
     return (s or "").strip()
@@ -86,12 +72,24 @@ def _is_valid_email(email: str) -> bool:
 # -------------------- API publica: Lectura --------------------
 
 def load_products() -> pd.DataFrame:
-    """Devuelve Dataframe de productos (Nombre, Descripcion)."""
-    return _read_sheet(SHEET_PRODUCTS, COLUMNS_PRODUCTS)
+    """Devuelve Dataframe de productos (id, nombre, descripcion)."""
+    _init_database()
+    conn = _get_connection()
+    try:
+        df = pd.read_sql_query(f"SELECT * FROM {TABLE_PRODUCTS}", conn)
+        return df
+    finally:
+        conn.close()
 
 def load_supplier() -> pd.DataFrame:
-    """Devuelve el Dataframe de Proveedores (Nombre, Correo)"""
-    return _read_sheet(SHEET_SUPPLIERS, COLUMNS_SUPPLIERS)
+    """Devuelve el Dataframe de Proveedores (id, nombre, correo)"""
+    _init_database()
+    conn = _get_connection()
+    try:
+        df = pd.read_sql_query(f"SELECT * FROM {TABLE_SUPPLIERS}", conn)
+        return df
+    finally:
+        conn.close()
 
 
 # -------------------- API publica: Escritura CRUD --------------------
@@ -104,16 +102,25 @@ def add_product(nombre: str, descripcion: str = "") -> None:
     if not nombre:
         raise ValueError("El nombre del producto no puede estar vacio")
     
-    df = load_products()
-    if any(_casefold(x) == _casefold(nombre) for x in df["Nombre"]):
-        raise ValueError(f"Ya existe un producto con el nombre '{nombre}'. ")
-    
-    df = pd.concat(
-        [df, pd.DataFrame([{"Nombre":nombre, "Descripcion":descripcion}])],
-        ignore_index=True
-    )
-    
-    _write_sheet(df, SHEET_PRODUCTS)
+    _init_database()
+    conn = _get_connection()
+    try:
+        # Verificar si ya existe (case-insensitive)
+        cursor = conn.execute(
+            f"SELECT id FROM {TABLE_PRODUCTS} WHERE LOWER(nombre) = LOWER(?)",
+            (nombre,)
+        )
+        if cursor.fetchone():
+            raise ValueError(f"Ya existe un producto con el nombre '{nombre}'.")
+        
+        # Insertar nuevo producto
+        conn.execute(
+            f"INSERT INTO {TABLE_PRODUCTS} (nombre, descripcion) VALUES (?, ?)",
+            (nombre, descripcion)
+        )
+        conn.commit()
+    finally:
+        conn.close()
     
     
 def delete_product(nombre: str) -> int:
@@ -123,14 +130,18 @@ def delete_product(nombre: str) -> int:
     if not nombre:
         return 0
     
-    df = load_products()
-    mask = df["Nombre"].apply(_casefold) != _casefold(nombre)
-    removed = len(df) - mask.sum()
-    
-    if removed > 0:
-        _write_sheet(df[mask].reset_index(drop=True),SHEET_PRODUCTS)
-        
-    return removed
+    _init_database()
+    conn = _get_connection()
+    try:
+        cursor = conn.execute(
+            f"DELETE FROM {TABLE_PRODUCTS} WHERE LOWER(nombre) = LOWER(?)",
+            (nombre,)
+        )
+        deleted_count = cursor.rowcount
+        conn.commit()
+        return deleted_count
+    finally:
+        conn.close()
 
 
 def add_supplier(nombre: str, correo: str) -> None:
@@ -142,18 +153,27 @@ def add_supplier(nombre: str, correo: str) -> None:
         raise ValueError("El nombre del proveedor no puede estar vacio")
     
     if not _is_valid_email(correo):
-        raise ValueError(f"El correo '{correo}' no es valido. ")
+        raise ValueError(f"El correo '{correo}' no es valido.")
     
-    df = load_supplier()
-    if any(_casefold(x) == _casefold(nombre) for x in df["Nombre"]):
-        raise ValueError(f"Ya existe un proveedor con el nombre '{nombre}.'")
-    
-    df = pd.concat(
-        [df, pd.DataFrame([{"Nombre":nombre, "Correo": correo}])],
-        ignore_index= True
-    )
-    
-    _write_sheet(df, SHEET_SUPPLIERS)
+    _init_database()
+    conn = _get_connection()
+    try:
+        # Verificar si ya existe (case-insensitive)
+        cursor = conn.execute(
+            f"SELECT id FROM {TABLE_SUPPLIERS} WHERE LOWER(nombre) = LOWER(?)",
+            (nombre,)
+        )
+        if cursor.fetchone():
+            raise ValueError(f"Ya existe un proveedor con el nombre '{nombre}'.")
+        
+        # Insertar nuevo proveedor
+        conn.execute(
+            f"INSERT INTO {TABLE_SUPPLIERS} (nombre, correo) VALUES (?, ?)",
+            (nombre, correo)
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def delete_supplier(nombre: str) -> int:
@@ -162,60 +182,92 @@ def delete_supplier(nombre: str) -> int:
     if not nombre:
         return 0
     
-    df = load_supplier()
-    mask = df["Nombre"].apply(_casefold) != _casefold(nombre)
-    removed = len(df) - mask.sum()
-    
-    if removed > 0:
-        _write_sheet(df[mask].reset_index(drop= True), SHEET_SUPPLIERS)
-    
-    return removed
+    _init_database()
+    conn = _get_connection()
+    try:
+        cursor = conn.execute(
+            f"DELETE FROM {TABLE_SUPPLIERS} WHERE LOWER(nombre) = LOWER(?)",
+            (nombre,)
+        )
+        deleted_count = cursor.rowcount
+        conn.commit()
+        return deleted_count
+    finally:
+        conn.close()
 
 # -------------------- Utilidades para la UI --------------------
 
 def search_products(query: str) -> pd.DataFrame:
     """Filtro por substring case-insensitive en Nombre o Descripcion"""
     q = _casefold(query)
-    df = load_products()
-    
-    if not q:
+    _init_database()
+    conn = _get_connection()
+    try:
+        if not q:
+            df = pd.read_sql_query(f"SELECT * FROM {TABLE_PRODUCTS}", conn)
+        else:
+            df = pd.read_sql_query(
+                f"SELECT * FROM {TABLE_PRODUCTS} WHERE "
+                f"LOWER(nombre) LIKE LOWER(?) OR LOWER(descripcion) LIKE LOWER(?)",
+                conn, params=(f"%{q}%", f"%{q}%")
+            )
         return df
-    
-    return df[
-        df["Nombre"].str.casefold().str.contains(q) | df["Descripcion"].str.casefold().str.contains(q)
-    ].reset_index(drop = True)
+    finally:
+        conn.close()
     
 def search_suppliers(query: str) -> pd.DataFrame:
     """Filtro por substring case-insensitive en Nombre o Correo"""
     q = _casefold(query)
-    df = load_supplier()
-    
-    if not q:
+    _init_database()
+    conn = _get_connection()
+    try:
+        if not q:
+            df = pd.read_sql_query(f"SELECT * FROM {TABLE_SUPPLIERS}", conn)
+        else:
+            df = pd.read_sql_query(
+                f"SELECT * FROM {TABLE_SUPPLIERS} WHERE "
+                f"LOWER(nombre) LIKE LOWER(?) OR LOWER(correo) LIKE LOWER(?)",
+                conn, params=(f"%{q}%", f"%{q}%")
+            )
         return df
-    
-    return df[
-        df["Nombre"].str.casefold().str.contains(q) | df["Correo"].str.casefold().str.contains(q)
-    ].reset_index(drop = True)
+    finally:
+        conn.close()
 
 
 def get_products_by_names(names: Iterable[str]) -> List[Dict[str, str]]:
-    """Devuelve lista de dicts de productos {Nombre, Descripcion} para los nombres dados"""
+    """Devuelve lista de dicts de productos {nombre, descripcion} para los nombres dados"""
     wanted = {_casefold(n) for n in names if _normalize_text(n)}
     
     if not wanted:
-        return[]
+        return []
     
-    df = load_products()
-    df = df[df["Nombre"].apply(_casefold).isin(wanted)]
-    return df.to_dict(orient="records")
+    _init_database()
+    conn = _get_connection()
+    try:
+        # Crear placeholders para la consulta IN
+        placeholders = ','.join('?' * len(wanted))
+        query = f"SELECT * FROM {TABLE_PRODUCTS} WHERE LOWER(nombre) IN ({placeholders})"
+        
+        df = pd.read_sql_query(query, conn, params=list(wanted))
+        return df.to_dict(orient="records")
+    finally:
+        conn.close()
 
 def get_suppliers_by_names(names: Iterable[str]) -> List[Dict[str, str]]:
-    """Devuelve lista de dicts de proveeodres {Nombre, Correo} para los nombres dados"""
+    """Devuelve lista de dicts de proveedores {nombre, correo} para los nombres dados"""
     wanted = {_casefold(n) for n in names if _normalize_text(n)}
     
     if not wanted:
-        return[]
+        return []
     
-    df = load_supplier()
-    df = df[df["Nombre"].apply(_casefold).isin(wanted)]
-    return df.to_dict(orient="records")
+    _init_database()
+    conn = _get_connection()
+    try:
+        # Crear placeholders para la consulta IN
+        placeholders = ','.join('?' * len(wanted))
+        query = f"SELECT * FROM {TABLE_SUPPLIERS} WHERE LOWER(nombre) IN ({placeholders})"
+        
+        df = pd.read_sql_query(query, conn, params=list(wanted))
+        return df.to_dict(orient="records")
+    finally:
+        conn.close()

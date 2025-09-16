@@ -283,8 +283,8 @@ def build_message(template: str, supplier_name: str, products: list[dict]) -> st
     else:
         product_lines = []
         for p in products:
-            nombre = str(p.get('Nombre', 'Sin nombre')).strip()
-            descripcion = str(p.get('Descripcion', 'Sin descripción')).strip()
+            nombre = str(p.get('nombre', 'Sin nombre')).strip()
+            descripcion = str(p.get('descripcion', 'Sin descripción')).strip()
             product_lines.append(f"- {nombre}: {descripcion}")
         product_lines = "\n".join(product_lines)
     
@@ -422,8 +422,8 @@ def send_bulk_emails(
             if not isinstance(supplier, dict):
                 raise ValueError(f"Proveedor inválido: {supplier}")
             
-            supplier_name = supplier.get("Nombre", "").strip()
-            supplier_email = supplier.get("Correo", "").strip()
+            supplier_name = supplier.get("nombre", "").strip()
+            supplier_email = supplier.get("correo", "").strip()
             
             if not supplier_name:
                 raise ValueError("Nombre del proveedor está vacío")
@@ -468,7 +468,7 @@ def send_bulk_emails(
             time.sleep(1)
             
         except Exception as e:
-            error_msg = f"{supplier.get('Nombre', 'Proveedor desconocido')}: {str(e)}"
+            error_msg = f"{supplier.get('nombre', 'Proveedor desconocido')}: {str(e)}"
             failed_sends.append(error_msg)
             print(f" Error general en email {i}/{len(suppliers)}: {error_msg}")
     
