@@ -33,6 +33,7 @@ class MainApp(tk.Tk):
         tk.Button(crud_frame, text = "Eliminar Producto", command = self.delete_product).pack(side = tk.LEFT, padx = 5)
         tk.Button(crud_frame, text = "Agregar Proveedor", command = self.create_supplier).pack(side = tk.LEFT, padx = 5)
         tk.Button(crud_frame, text = "Eliminar Proveedor", command = self.delete_supplier).pack(side = tk.LEFT, padx = 5)
+        tk.Button(crud_frame, text = "Cargar DB", command = self.load_database).pack(side = tk.LEFT, padx = 5)
         tk.Button(crud_frame, text = "Diagnosticar Outlook", command = self.diagnose_outlook).pack(side = tk.LEFT, padx = 5)
         
         # ------ Frame Central ------
@@ -51,13 +52,19 @@ class MainApp(tk.Tk):
         cc_frame.pack(pady = 5)
         
         tk.Label(cc_frame, text = "CC (Copia):", font = ("Arial", 10, "bold")).pack(side = tk.LEFT, padx = 5)
-        self.cc_var = tk.StringVar(value = "damiangaviria8@gmail.com")
+        self.cc_var = tk.StringVar(value = "")
         cc_entry = tk.Entry(cc_frame, textvariable = self.cc_var, width = 40)
         cc_entry.pack(side = tk.LEFT, padx = 5)
         
-        # ------ Boton Enviar Cotizaciones ------
-        send_btn = tk.Button(self, text = "Enviar Cotizaciones", command = self.send_action)
-        send_btn.pack(pady = 10)
+        # ------ Botones de Acción ------
+        button_frame = tk.Frame(self)
+        button_frame.pack(pady = 10)
+        
+        save_btn = tk.Button(button_frame, text = "Guardar Cambios", command = self.save_changes, bg = "#4CAF50", fg = "white", font = ("Arial", 10, "bold"))
+        save_btn.pack(side = tk.LEFT, padx = 5)
+        
+        send_btn = tk.Button(button_frame, text = "Enviar Cotizaciones", command = self.send_action, bg = "#2196F3", fg = "white", font = ("Arial", 10, "bold"))
+        send_btn.pack(side = tk.LEFT, padx = 5)
         
         # ------ Inicializacion de listas ------
         self.refresh_products()
@@ -113,7 +120,7 @@ class MainApp(tk.Tk):
         df = data_manager.search_products(query) #df es el dataframe de productos y busqueda
         
         for _, row in df.iterrows():
-            name = row["nombre"]
+            name = row["Nombre"]
             var = tk.BooleanVar(value = (name in self.selected_products))
             cb = tk.Checkbutton(
                 self.product_frame.list_frame,
@@ -132,7 +139,7 @@ class MainApp(tk.Tk):
         df = data_manager.search_suppliers(query)
         
         for _, row in df.iterrows():
-            name = row["nombre"]
+            name = row["Nombre"]
             var = tk.BooleanVar(value = (name in self.selected_suppliers))
             cb = tk.Checkbutton(
                 self.supplier_frame.list_frame,
@@ -159,6 +166,28 @@ class MainApp(tk.Tk):
             (self.selected_products.add(name) if var.get() else self.selected_products.discard(name))
         else:
             (self.selected_suppliers.add(name) if var.get() else self.selected_suppliers.discard(name))
+    
+    def save_changes(self):
+        """ Guardar todos los cambios pendientes en la base de datos """
+        try:
+            # Forzar la sincronización de la base de datos
+            from logic.data_manager import force_save, get_database_status
+            
+            # Guardar cambios
+            force_save()
+            
+            # Obtener estado de la base de datos
+            status = get_database_status()
+            
+            messagebox.showinfo("Éxito", 
+                f"Todos los cambios han sido guardados correctamente\n\n"
+                f"Estado de la base de datos:\n"
+                f"• Productos: {status['products']}\n"
+                f"• Proveedores: {status['suppliers']}\n"
+                f"• Ubicación: {status['database_path']}"
+            )
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al guardar cambios: {str(e)}")
     
     def send_action(self):
         """ Enviar los correos a los proveedores seleccionado """
@@ -188,6 +217,17 @@ class MainApp(tk.Tk):
         except Exception as e:
             messagebox.showerror("Error", str(e))
     
+    def load_database(self):
+        """ Carga un archivo Excel con productos y proveedores """
+        try:
+            success = data_manager.load_excel_file()
+            if success:
+                # Refrescar las listas después de cargar
+                self.refresh_products()
+                self.refresh_suppliers()
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al cargar la base de datos: {str(e)}")
+    
     def diagnose_outlook(self):
         """ Diagnostica problemas con Outlook """
         try:
@@ -197,19 +237,19 @@ class MainApp(tk.Tk):
             messagebox.showerror("Error en diagnóstico", f"Error al diagnosticar Outlook: {str(e)}")
         
     
-    # ========== CRUD (Solo prints por ahora) ==========
+    # ========== CRUD ==========
     
     def create_product(self):
-        CreateProductDialog(self, self.refresh_products)
+        CreateProductDialog(self, lambda: self.refresh_products())
     
     def delete_product(self):
-        DeleteProductDialog(self, self.refresh_products)
+        DeleteProductDialog(self, lambda: self.refresh_products())
         
     def create_supplier(self):
-        CreateSupplierDialog(self, self.refresh_suppliers)
+        CreateSupplierDialog(self, lambda: self.refresh_suppliers())
     
     def delete_supplier(self):
-        DeleteSupplierDialog(self,self.refresh_suppliers)
+        DeleteSupplierDialog(self, lambda: self.refresh_suppliers())
 
 if __name__ == "__main__":
     app = MainApp()

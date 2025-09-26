@@ -129,7 +129,7 @@ def diagnose_outlook_issues() -> str:
     
     # Verificar sistema operativo
     if platform.system() != "Windows":
-        diagnosis.append("❌ Solo funciona en Windows")
+        diagnosis.append("Solo funciona en Windows")
         return "\n".join(diagnosis)
     
     # Verificar conexión básica
@@ -189,22 +189,6 @@ def generate_email_draft(suppliers: list[dict], products: list[dict], cc_email: 
     
     return "\n".join(output_lines)
 
-def save_email_draft(suppliers: list[dict], products: list[dict], cc_email: str = "", filename: str = None) -> str:
-    """ Guarda los emails en un archivo de texto como respaldo """
-    
-    if filename is None:
-        from datetime import datetime
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"emails_cotizacion_{timestamp}.txt"
-    
-    content = generate_email_draft(suppliers, products, cc_email)
-    
-    output_path = BASE_DIR / "data" / filename
-    
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(content)
-    
-    return str(output_path)
 
 def send_email_via_powershell(supplier_name: str, supplier_email: str, products: list[dict], cc_email: str = "") -> None:
     """ Envía email usando PowerShell y Outlook (envío automático real) """
@@ -283,8 +267,8 @@ def build_message(template: str, supplier_name: str, products: list[dict]) -> st
     else:
         product_lines = []
         for p in products:
-            nombre = str(p.get('nombre', 'Sin nombre')).strip()
-            descripcion = str(p.get('descripcion', 'Sin descripción')).strip()
+            nombre = str(p.get('Nombre', 'Sin nombre')).strip()
+            descripcion = str(p.get('Descripcion', 'Sin descripción')).strip()
             product_lines.append(f"- {nombre}: {descripcion}")
         product_lines = "\n".join(product_lines)
     
@@ -403,11 +387,11 @@ def send_bulk_emails(
         raise ValueError("No se proporcionaron productos para cotizar")
     
     # Verificar que Outlook esté disponible antes de empezar
-    print("🔍 Verificando conexión con Outlook...")
+    print("Verificando conexión con Outlook...")
     success, message = test_outlook_connection()
     if not success:
         raise Exception(f"No se puede conectar con Outlook: {message}")
-    print(f"✅ {message}")
+    print(f"{message}")
     
     print(f" Iniciando envío de emails a {len(suppliers)} proveedor(es)...")
     print(f" Productos a cotizar: {len(products)}")
@@ -422,8 +406,8 @@ def send_bulk_emails(
             if not isinstance(supplier, dict):
                 raise ValueError(f"Proveedor inválido: {supplier}")
             
-            supplier_name = supplier.get("nombre", "").strip()
-            supplier_email = supplier.get("correo", "").strip()
+            supplier_name = supplier.get("Nombre", "").strip()
+            supplier_email = supplier.get("Correo", "").strip()
             
             if not supplier_name:
                 raise ValueError("Nombre del proveedor está vacío")
@@ -431,7 +415,7 @@ def send_bulk_emails(
             if not supplier_email:
                 raise ValueError(f"Email del proveedor '{supplier_name}' está vacío")
             
-            print(f"📧 Enviando email {i}/{len(suppliers)} a: {supplier_name} ({supplier_email})")
+            print(f"Enviando email {i}/{len(suppliers)} a: {supplier_name} ({supplier_email})")
             
             # Intentar primero con COM, si falla usar PowerShell
             try:
@@ -445,7 +429,7 @@ def send_bulk_emails(
                 print(f" Email {i}/{len(suppliers)} enviado exitosamente a {supplier_name}")
                 
             except Exception as com_error:
-                print(f"⚠️ Error COM con {supplier_name}, intentando PowerShell...")
+                print(f"Error COM con {supplier_name}, intentando PowerShell...")
                 # Si falla COM, intentar con PowerShell
                 try:
                     send_email_via_powershell(
@@ -477,24 +461,14 @@ def send_bulk_emails(
     print(f" Emails enviados exitosamente: {successful_sends}")
     print(f" Emails fallidos: {len(failed_sends)}")
     
-    # Si todos fallaron, generar archivo de respaldo
+    # Si todos fallaron, reportar error
     if successful_sends == 0 and failed_sends:
-        try:
-            backup_file = save_email_draft(suppliers, products, cc_email)
-            error_msg = (
-                f"No se pudo enviar ningún email automáticamente.\n\n"
-                f"Se intentaron ambos métodos (COM y PowerShell) pero fallaron.\n\n"
-                f"Errores encontrados:\n" + "\n".join(failed_sends) + "\n\n"
-                f"Se ha generado un archivo de respaldo con los emails:\n"
-                f"{backup_file}\n\n"
-                f"Para enviar los emails manualmente:\n"
-                f"1. Abre el archivo de respaldo\n"
-                f"2. Copia cada email a Outlook\n"
-                f"3. Envía los emails desde Outlook"
-            )
-            raise Exception(error_msg)
-        except Exception as e:
-            raise Exception(f"Error al generar archivo de respaldo: {str(e)}")
+        error_msg = (
+            f"No se pudo enviar ningún email automáticamente.\n\n"
+            f"Se intentaron ambos métodos (COM y PowerShell) pero fallaron.\n\n"
+            f"Errores encontrados:\n" + "\n".join(failed_sends)
+        )
+        raise Exception(error_msg)
     
     # Si algunos fallaron, reportar resultados
     elif failed_sends:
@@ -503,4 +477,4 @@ def send_bulk_emails(
     
     # Si todo fue exitoso
     else:
-        print(f"🎉 ¡Todos los emails fueron enviados exitosamente!")
+        print(f"¡Todos los emails fueron enviados exitosamente!")

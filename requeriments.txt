@@ -1,4 +1,4 @@
 pandas      # Para manipular los datos facilmente
 pywin32     # Para integrar con Outlook en windows 
 tkinter     # Interfaz grafica
-sqlite3     # Base de datos SQLite (incluida en Python) 
+openpyxl    # Para trabajar con archivos Excel 
