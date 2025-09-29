@@ -7,6 +7,8 @@ from ui.dialogs import (
     CreateSupplierDialog, DeleteSupplierDialog
 )
 
+from ui.comparative_view import ComparativeView
+
 from logic import data_manager, email_sender
 
 class MainApp(tk.Tk):
@@ -29,12 +31,14 @@ class MainApp(tk.Tk):
         crud_frame = tk.Frame(self)
         crud_frame.pack(pady = 5)
         
+        
         tk.Button(crud_frame, text = "Agregar Producto", command = self.create_product).pack(side = tk.LEFT, padx = 5)
         tk.Button(crud_frame, text = "Eliminar Producto", command = self.delete_product).pack(side = tk.LEFT, padx = 5)
         tk.Button(crud_frame, text = "Agregar Proveedor", command = self.create_supplier).pack(side = tk.LEFT, padx = 5)
         tk.Button(crud_frame, text = "Eliminar Proveedor", command = self.delete_supplier).pack(side = tk.LEFT, padx = 5)
         tk.Button(crud_frame, text = "Cargar DB", command = self.load_database).pack(side = tk.LEFT, padx = 5)
         tk.Button(crud_frame, text = "Diagnosticar Outlook", command = self.diagnose_outlook).pack(side = tk.LEFT, padx = 5)
+        tk.Button(crud_frame, text = "Comparativa", command= self.open_comparative_view).pack(side = tk.LEFT, padx = 5)
         
         # ------ Frame Central ------
         central_frame = tk.Frame(self)
@@ -69,7 +73,11 @@ class MainApp(tk.Tk):
         # ------ Inicializacion de listas ------
         self.refresh_products()
         self.refresh_suppliers()
-        
+    
+    # ========= Cargar Pestaña Comparativa (REUTILIZABLE) =========
+    def open_comparative_view(self):
+        ComparativeView(self)
+    
     # ========= PANEL LISTAS (REUTILIZABLE) =========
     
     def create_list_panel(self,parent, title):
