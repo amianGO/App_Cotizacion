@@ -1,0 +1,11 @@
+Comparativa realizada el 25-09-30 12:08:57
+
+Producto: Diadema
+  Proveedor: Damian | Precio: 130000.0 | Tiempo de Entrega: 2 dias 
+  Proveedor: Alcom | Precio: 120000.0 | Tiempo de Entrega: 3 dias 
+
+Resumen de mejores opciones:
+Producto: Diadema
+ Mejor Proveedor: Alcom 
+ Precio: 120000.0 
+ Tiempo de entrega: 3 dias 

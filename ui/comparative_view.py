@@ -1,5 +1,6 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
+from datetime import datetime
 from logic import data_manager
 
 class ComparativeView(tk.Toplevel):
@@ -18,47 +19,96 @@ class ComparativeView(tk.Toplevel):
         self.selected_products = []
         self.selected_suppliers = []
         
+        self.supplier_selected_state = {}
+        self.product_selected_state = {}
+        
         # Diccionario para almacenar precios y tiempos : {(proveedor, producto): {"precio":..., "tiempo:..."}}
         self.comparative_data = {}
         
         self.create_widgets()
     
     def create_widgets(self):
-        
-        """Crea los widgets de seleccion y tabla comparativa"""
-        
-        #Seleccion de proveedores
+        #Frame de proveedores
         supplier_frame = tk.LabelFrame(self, text= "Seleccionar Proveedores")
-        supplier_frame.pack(fill="x", padx=5, pady=5)
-        self.supplier_vars = {}
+        supplier_frame.pack(fill="x", padx= 5, pady= 5)
         
-        for supplier in self.suppliers:
-            var = tk.BooleanVar()
-            cb = tk.Checkbutton(supplier_frame, text=supplier["Nombre"], variable=var)
-            cb.pack(side="left", padx= 5)
-            self.supplier_vars[supplier["Nombre"]] = var
-        #------------------------------------------------------------------------------------------#
+        product_frame = tk.LabelFrame(self, text="Selecciona los Productos")
+        product_frame.pack(fill="x", padx= 5, pady= 5)
         
+        #Busqueda de Productos
+        self.product_search_var = tk.StringVar()
+        product_search_entry = tk.Entry(product_frame, textvariable= self.product_search_var)
+        product_search_entry.pack(fill="x", padx=5, pady=2)
+        product_search_entry.bind("<KeyRelease>", self.update_product_list)
         
-        #------------------------------------------------------------------------------------------#
-        # Seleccion de Productos
-        products_frame = tk.LabelFrame(self, text="Seleccionar Productos")
-        products_frame.pack(fill="x", padx= 5, pady= 5)
+        # Busqueda de Proveedores
+        self.supplier_search_var = tk.StringVar()
+        supplier_search_entry = tk.Entry(supplier_frame, textvariable= self.supplier_search_var)
+        supplier_search_entry.pack(fill="x", padx= 5, pady= 2)
+        supplier_search_entry.bind("<KeyRelease>", self.update_supplier_list)
+        
+        # Frame para los CheckBoxes de Productos
+        self.product_list_frame = tk.Frame(product_frame)
+        self.product_list_frame.pack(fill="x")
         self.product_vars = {}
+        self.render_product_checkboxes(self.productos)
         
-        for product in self.productos:
-            var = tk.BooleanVar()
-            cb = tk.Checkbutton(products_frame, text=product["Nombre"], variable= var)
-            cb.pack(side="left", padx= 5)
-            self.product_vars[product["Nombre"]] = var
+        # Frame para los Chechboxes de proveedores
+        self.supplier_list_frame = tk.Frame(supplier_frame)
+        self.supplier_list_frame.pack(fill="x")
+        self.supplier_vars = {}
+        self.render_supplier_checkboxes(self.suppliers)
+
+        tk.Button(self, text= "Generar Tabla comparativa", command= self.generate_table).pack(pady=10)
         
-        # Boton par generar la tabla de ingreso de precios/tiempos
-        
-        tk.Button(self, text="Generar Tabla comparativa", command= self.generate_table).pack(pady=10)
-        
-        # Frame de la tabla
+        #Frame de la tabla
         self.table_frame = tk.Frame(self)
-        self.table_frame.pack(fill="both", expand=True, padx= 5, pady= 5)
+        self.table_frame.pack(fill="both", expand=True, padx=5, pady=5)
+    
+    def update_product_list(self, event = None):
+        query = self.product_search_var.get().lower()
+        filtered = [s for s in self.productos if query in s["Nombre"].lower()]
+        self.render_product_checkboxes(filtered)
+    
+    def update_supplier_list(self, event=None):
+        query = self.supplier_search_var.get().lower()
+        filtered = [s for s in self.suppliers if query in s["Nombre"].lower()]
+        self.render_supplier_checkboxes(filtered)
+    
+    def render_product_checkboxes(self, productos):
+        # Limpia los CehckBoxes anteriores
+        for widget in self.product_list_frame.winfo_children():
+            widget.destroy()
+        self.product_vars.clear()
+        for product in productos:
+            name = product["Nombre"]
+            # Recupera el estado anterior si existe
+            var = tk.BooleanVar(value=self.product_selected_state.get(name, False))
+            cb = tk.Checkbutton(self.product_list_frame, text= name, variable= var,
+                                command= lambda n=name, v=var: self.update_product_state(n,v))
+            cb.pack(side="left", padx=5)
+            self.product_vars[name] = var
+    
+    def render_supplier_checkboxes(self, suppliers):
+        #Limpia los checkBoxes anteriores
+        for widget in self.supplier_list_frame.winfo_children():
+            widget.destroy()
+        self.supplier_vars.clear()
+        for supplier in suppliers:
+            name = supplier["Nombre"]
+            # Recupera el estado anterior si existe
+            var = tk.BooleanVar(value=self.supplier_selected_state.get(name, False))
+            cb = tk.Checkbutton(self.supplier_list_frame, text=name, variable=var,
+                                command= lambda n=name, v=var: self.update_supplier_state(n, v))
+            cb.pack(side="left", padx=5)
+            self.supplier_vars[name] = var
+    
+    def update_supplier_state(self, name, var):
+        # Actualiza el estado en el diccionario
+        self.supplier_selected_state[name] = var.get()
+    
+    def update_product_state(self, name, var):
+        self.product_selected_state[name] = var.get()
     
     def generate_table(self):
         """Genera la tabla para ingresar precios y timpos por proveedor / producto"""
@@ -125,4 +175,28 @@ class ComparativeView(tk.Toplevel):
             result.append(f"Producto: {product}\n Mejor Proveedor: {best_supplier} \n Precio: {best_price} \n Tiempo de entrega: {best_time} dias \n")
         
         messagebox.showinfo("Comparativa", "\n".join(result))
+        
+        #Preguntar ruta para guardar el archivo
+        ruta =filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            filetypes=[("Archivo de texto", "*.txt")],
+            title="Guardar Comparativa"
+        )
+        
+        if ruta:
+            with open(ruta, "w", encoding="utf-8") as f:
+                f.write(f"Comparativa realizada el {datetime.now().strftime('%y-%m-%d %H:%M:%S')}\n\n")
+                for product in self.selected_products:
+                    f.write(f"Producto: {product}\n")
+                    for supplier in self.selected_suppliers:
+                        entry = self.entry_vars.get((supplier, product))
+                        if entry:
+                            precio = entry["precio"].get()
+                            tiempo = entry["tiempo"].get()
+                            f.write(f"  Proveedor: {supplier} | Precio: {precio} | Tiempo de Entrega: {tiempo} dias \n")
+                    f.write("\n")
+                f.write("Resumen de mejores opciones:\n")
+                f.write("\n".join(result))
+            messagebox.showinfo("Guardado", f"Comparativa guardada en:\n{ruta}")
+                    
         
