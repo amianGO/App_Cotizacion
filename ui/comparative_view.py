@@ -35,6 +35,9 @@ class ComparativeView(tk.Toplevel):
         product_frame = tk.LabelFrame(self, text="Selecciona los Productos")
         product_frame.pack(fill="x", padx= 5, pady= 5)
         
+        self.urgency_var = tk.BooleanVar(value= False)
+        tk.Checkbutton(self, text="Urgencia", variable=self.urgency_var).pack(pady=5)
+        
         #Busqueda de Productos
         self.product_search_var = tk.StringVar()
         product_search_entry = tk.Entry(product_frame, textvariable= self.product_search_var)
@@ -155,7 +158,7 @@ class ComparativeView(tk.Toplevel):
         """Calcula la mejor opcion por producto (menor precio y tiempo de entrega)
         y muestra los resultados en un mensaje
         """
-        
+        urgente = self.urgency_var.get()
         result = []
         for product in self.selected_products:
             best_supplier = None
@@ -166,12 +169,18 @@ class ComparativeView(tk.Toplevel):
                 if entry:
                     precio = entry["precio"].get()
                     tiempo = entry["tiempo"].get()
-                    
+                    if urgente:
+                        #Si es urgente, Prioriza menor tiempo de entrega
+                        if tiempo < best_time or (tiempo == best_time and precio < best_price):
+                            best_time = tiempo
+                            best_price = precio
+                            best_supplier = supplier
                     #Comparar por precio y tiempo
-                    if precio < best_price or (precio == best_price and tiempo < best_time):
-                        best_price = precio
-                        best_time = tiempo
-                        best_supplier = supplier
+                    else:
+                        if precio < best_price or (precio == best_price and tiempo < best_time):
+                            best_price = precio
+                            best_time = tiempo
+                            best_supplier = supplier
             result.append(f"Producto: {product}\n Mejor Proveedor: {best_supplier} \n Precio: {best_price} \n Tiempo de entrega: {best_time} dias \n")
         
         messagebox.showinfo("Comparativa", "\n".join(result))
