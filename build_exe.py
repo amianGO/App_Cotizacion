@@ -41,6 +41,10 @@ def build_executable():
     temp_dir = os.path.join(os.environ.get('TEMP', os.getcwd()), 'pyinstaller_build')
     os.makedirs(temp_dir, exist_ok=True)
     
+    # Asegurarse de que existe la carpeta de imágenes
+    product_images_dir = Path("data/product_images")
+    product_images_dir.mkdir(parents=True, exist_ok=True)
+    
     cmd = [
         sys.executable,
         "-m",
@@ -48,12 +52,14 @@ def build_executable():
         "--onefile",                # Un solo archivo ejecutable
         "--windowed",               # Sin consola (GUI)
         "--name", app_name,         # Nombre del ejecutable
-        "--add-data", "data;data",  # Incluir carpeta data
+        "--add-data", "data;data",  # Incluir carpeta data completa
         "--add-data", "logic;logic",# Incluir carpeta logic
         "--add-data", "ui;ui",      # Incluir carpeta ui
         "--clean",                  # Limpiar archivos temporales
         "--workpath", temp_dir,     # Directorio temporal para la construcción
         "--distpath", "dist",       # Directorio de salida
+        # Agregar runtime hooks para manejar rutas en el exe
+        "--runtime-hook", "runtime_hooks.py",
         main_script
     ]
     

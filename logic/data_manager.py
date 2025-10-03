@@ -11,9 +11,13 @@ from tkinter import filedialog, messagebox
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 EXCEL_PATH = None  # Se establecerá cuando se cargue un archivo
+IMAGES_DIR = BASE_DIR / "data" / "product_images"
+
+# Crear directorio de imágenes si no existe
+IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
 # Columnas esperadas
-COLUMNS_PRODUCTS = ["Nombre", "Descripcion"]
+COLUMNS_PRODUCTS = ["Nombre", "Descripcion", "Foto"]
 COLUMNS_SUPPLIERS = ["Nombre", "Correo"]
 
 # -------------------- Utilidades internas --------------------
@@ -96,7 +100,7 @@ def load_supplier() -> pd.DataFrame:
 
 # -------------------- API publica: Escritura CRUD --------------------
 
-def add_product(nombre: str, descripcion: str = "") -> None:
+def add_product(nombre: str, descripcion: str = "", imagen_path: str = None) -> None:
     """Agrega un producto si no existe (comparacion case-insentive)"""
     nombre = _normalize_text(nombre)
     descripcion = _normalize_text(descripcion)
@@ -111,10 +115,30 @@ def add_product(nombre: str, descripcion: str = "") -> None:
     if not existing_products.empty:
         raise ValueError(f"Ya existe un producto con el nombre '{nombre}'.")
     
+    # Procesar imagen si se proporcionó
+    imagen_guardada = ""
+    if imagen_path:
+        try:
+            # Obtener extensión del archivo original
+            ext = Path(imagen_path).suffix
+            # Crear nombre de archivo seguro basado en el nombre del producto
+            safe_name = re.sub(r'[^a-zA-Z0-9]', '_', nombre)
+            new_image_name = f"{safe_name}{ext}"
+            new_image_path = IMAGES_DIR / new_image_name
+            
+            # Copiar imagen a la carpeta del proyecto
+            import shutil
+            shutil.copy2(imagen_path, new_image_path)
+            imagen_guardada = new_image_name
+        except Exception as e:
+            print(f"Error al procesar imagen: {e}")
+            # Continuar sin imagen si hay error
+    
     # Agregar nuevo producto
     new_product = pd.DataFrame({
         'Nombre': [nombre],
-        'Descripcion': [descripcion]
+        'Descripcion': [descripcion],
+        'Foto': [imagen_guardada]
     })
     products_df = pd.concat([products_df, new_product], ignore_index=True)
     _save_excel_data(products_df, suppliers_df)

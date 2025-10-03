@@ -5,6 +5,7 @@ from tempfile import template
 import time
 import subprocess
 import urllib.parse
+import os
 
 # Windows-specific import
 if platform.system() == "Windows":
@@ -12,8 +13,15 @@ if platform.system() == "Windows":
 else:
     win32 = None
 
-BASE_DIR = Path(__file__).resolve().parents[1]
+def get_base_dir():
+    """Obtiene la ruta base de la aplicación, funcionando tanto en desarrollo como en el exe"""
+    if 'APP_ROOT' in os.environ:
+        return Path(os.environ['APP_ROOT'])
+    return Path(__file__).resolve().parents[1]
+
+BASE_DIR = get_base_dir()
 TEMPLATE_PATH = BASE_DIR / "data" / "email_template.txt"
+IMAGES_DIR = BASE_DIR / "data" / "product_images"
 
 def load_template() -> str:
     """ Carga el contenido de la plantilla del Email """
@@ -224,6 +232,26 @@ try {{
     $mail.Body = @"
 {body}
 "@
+    
+    # Adjuntar imágenes si existen
+    $images = @(
+'''
+    
+    # Agregar rutas de imágenes al script
+    for product in products:
+        foto = product.get('Foto', '').strip()
+        if foto:
+            image_path = IMAGES_DIR / foto
+            if image_path.exists():
+                ps_script += f'        "{str(image_path)}",\n'
+    
+    ps_script += '''    )
+    
+    foreach ($imagePath in $images) {
+        if (Test-Path $imagePath) {
+            $mail.Attachments.Add($imagePath)
+        }
+    }
 '''
     
     if cc_email and cc_email.strip():
@@ -264,18 +292,36 @@ def build_message(template: str, supplier_name: str, products: list[dict]) -> st
     
     if not products:
         product_lines = "No se especificaron productos."
+        has_images = False
     else:
         product_lines = []
+        has_images = False
         for p in products:
             nombre = str(p.get('Nombre', 'Sin nombre')).strip()
             descripcion = str(p.get('Descripcion', 'Sin descripción')).strip()
+            foto = p.get('Foto', '').strip()
             product_lines.append(f"- {nombre}: {descripcion}")
+            if foto:
+                has_images = True
         product_lines = "\n".join(product_lines)
     
     message = template.format(
-        nombre_proveedor = str(supplier_name).strip(),
-        lista_productos = product_lines
+        nombre_proveedor=str(supplier_name).strip(),
+        lista_productos=product_lines
     )
+    
+    # Manejar la sección de nota de imágenes
+    if has_images:
+        message = message.replace("{nota_imagenes}", "")
+        message = message.replace("{/nota_imagenes}", "")
+    else:
+        # Si no hay imágenes, eliminar la sección completa
+        start_tag = "{nota_imagenes}"
+        end_tag = "{/nota_imagenes}"
+        start_pos = message.find(start_tag)
+        end_pos = message.find(end_tag)
+        if start_pos != -1 and end_pos != -1:
+            message = message[:start_pos] + message[end_pos + len(end_tag):]
     
     return message
 
@@ -342,6 +388,17 @@ def send_email(supplier_name: str, supplier_email: str, products: list[dict], cc
         
         mail.Subject = "Cotización de elementos"
         mail.Body = body
+        
+        # Adjuntar imágenes si existen
+        for product in products:
+            foto = product.get('Foto', '').strip()
+            if foto:
+                image_path = IMAGES_DIR / foto
+                if image_path.exists():
+                    try:
+                        mail.Attachments.Add(str(image_path))
+                    except Exception as e:
+                        print(f"No se pudo adjuntar la imagen {foto}: {str(e)}")
         
         # Verificar que el mensaje se configuró correctamente
         if not mail.To or mail.To != supplier_email:

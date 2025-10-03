@@ -3,8 +3,7 @@ from tkinter import ttk, messagebox
 
 from logic import data_manager
 from ui.dialogs import (
-    CreateProductDialog, DeleteProductDialog,
-    CreateSupplierDialog, DeleteSupplierDialog
+    CreateProductDialog, CreateSupplierDialog
 )
 
 from ui.comparative_view import ComparativeView
@@ -251,13 +250,43 @@ class MainApp(tk.Tk):
         CreateProductDialog(self, lambda: self.refresh_products())
     
     def delete_product(self):
-        DeleteProductDialog(self, lambda: self.refresh_products())
+        if not self.selected_products:
+            messagebox.showwarning("Advertencia", "Por favor selecciona los productos que deseas eliminar")
+            return
+        
+        products_to_delete = list(self.selected_products)
+        if messagebox.askyesno("Confirmar eliminación", 
+                              f"¿Estás seguro de que deseas eliminar los siguientes productos?\n\n" + 
+                              "\n".join(f"- {p}" for p in products_to_delete)):
+            try:
+                for product in products_to_delete:
+                    data_manager.delete_product(product)
+                    self.selected_products.discard(product)
+                messagebox.showinfo("Éxito", f"Se eliminaron {len(products_to_delete)} productos")
+                self.refresh_products()
+            except Exception as e:
+                messagebox.showerror("Error", f"Error al eliminar productos: {str(e)}")
         
     def create_supplier(self):
         CreateSupplierDialog(self, lambda: self.refresh_suppliers())
     
     def delete_supplier(self):
-        DeleteSupplierDialog(self, lambda: self.refresh_suppliers())
+        if not self.selected_suppliers:
+            messagebox.showwarning("Advertencia", "Por favor selecciona los proveedores que deseas eliminar")
+            return
+        
+        suppliers_to_delete = list(self.selected_suppliers)
+        if messagebox.askyesno("Confirmar eliminación", 
+                              f"¿Estás seguro de que deseas eliminar los siguientes proveedores?\n\n" + 
+                              "\n".join(f"- {s}" for s in suppliers_to_delete)):
+            try:
+                for supplier in suppliers_to_delete:
+                    data_manager.delete_supplier(supplier)
+                    self.selected_suppliers.discard(supplier)
+                messagebox.showinfo("Éxito", f"Se eliminaron {len(suppliers_to_delete)} proveedores")
+                self.refresh_suppliers()
+            except Exception as e:
+                messagebox.showerror("Error", f"Error al eliminar proveedores: {str(e)}")
 
 if __name__ == "__main__":
     app = MainApp()
