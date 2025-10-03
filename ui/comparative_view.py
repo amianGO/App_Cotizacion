@@ -64,9 +64,35 @@ class ComparativeView(tk.Toplevel):
 
         tk.Button(self, text= "Generar Tabla comparativa", command= self.generate_table).pack(pady=10)
         
-        #Frame de la tabla
-        self.table_frame = tk.Frame(self)
-        self.table_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        # Contenedor principal para la tabla y scrollbars
+        self.table_container = tk.Frame(self)
+        self.table_container.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Canvas para la tabla
+        self.table_canvas = tk.Canvas(self.table_container)
+        
+        # Scrollbars
+        self.scrollbar_y = tk.Scrollbar(self.table_container, orient="vertical", command=self.table_canvas.yview)
+        self.scrollbar_x = tk.Scrollbar(self.table_container, orient="horizontal", command=self.table_canvas.xview)
+        
+        # Frame interno para la tabla
+        self.table_frame = tk.Frame(self.table_canvas)
+        
+        # Configurar scrollbars
+        self.table_canvas.configure(yscrollcommand=self.scrollbar_y.set, xscrollcommand=self.scrollbar_x.set)
+        
+        # Empaquetar los widgets en el orden correcto
+        self.scrollbar_y.pack(side="right", fill="y")
+        self.scrollbar_x.pack(side="bottom", fill="x")
+        self.table_canvas.pack(side="left", fill="both", expand=True)
+        
+        # Crear ventana del canvas
+        self.table_canvas.create_window((0,0), window=self.table_frame, anchor="nw")
+        
+        # Vincular eventos de redimensionamiento y configuración
+        self.table_frame.bind("<Configure>", self.on_frame_configure)
+        self.table_canvas.bind("<Configure>", self.on_canvas_configure)
+        
     
     def update_product_list(self, event = None):
         query = self.product_search_var.get().lower()
@@ -112,6 +138,16 @@ class ComparativeView(tk.Toplevel):
     
     def update_product_state(self, name, var):
         self.product_selected_state[name] = var.get()
+    
+    def on_frame_configure(self, event=None):
+        """Actualiza la región de scroll cuando el frame interno cambia de tamaño"""
+        self.table_canvas.configure(scrollregion=self.table_canvas.bbox("all"))
+    
+    def on_canvas_configure(self, event=None):
+        """Ajusta el ancho del frame interno cuando el canvas cambia de tamaño"""
+        # Asegura que el frame interno tenga al menos el ancho del canvas
+        width = event.width if event else self.table_canvas.winfo_width()
+        self.table_canvas.itemconfig(self.table_canvas.find_withtag("all")[0], width=width)
     
     def generate_table(self):
         """Genera la tabla para ingresar precios y timpos por proveedor / producto"""
