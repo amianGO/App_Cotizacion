@@ -84,7 +84,7 @@ if __name__ == "__main__":
     
     # Construir el ejecutable
     if build_executable():
-        print("\n✨ ¡Proceso completado!")
+        print("\n ¡Proceso completado!")
         print(" Puedes encontrar tu ejecutable en la carpeta 'dist'")
     else:
         print("\n El proceso falló")

@@ -50,19 +50,85 @@ class ComparativeView(tk.Toplevel):
         supplier_search_entry.pack(fill="x", padx= 5, pady= 2)
         supplier_search_entry.bind("<KeyRelease>", self.update_supplier_list)
         
-        # Frame para los CheckBoxes de Productos
-        self.product_list_frame = tk.Frame(product_frame)
-        self.product_list_frame.pack(fill="x")
+        # -------------------------------------------------------------------------------------------------------------#
+        # -------------------------------------------------------------------------------------------------------------#
+        # Frame para los CheckBoxes de Productos (Forma 1 de hacerlo)
+        #self.product_list_frame = tk.Frame(product_frame)
+        #self.product_list_frame.pack(fill="x")
+        #self.product_vars = {}
+        #self.render_product_checkboxes(self.productos)
+        
+        #Contenedor para los Productos
+        self.product_container = tk.Frame(product_frame)
+        self.product_container.pack(fill="x", padx=5, pady=5)
+        
+        # Canvas para productos
+        self.product_canva = tk.Canvas(self.product_container, height=50)
+        self.product_canva.pack_propagate(False)  # Evita que el canvas se encoja
+        
+        # Scrollbar horizontal para productos
+        self.product_scrollbar = tk.Scrollbar(self.product_container, orient="horizontal", command=self.product_canva.xview)
+        
+        # Frame interno para los checkboxes de productos
+        self.product_list_frame = tk.Frame(self.product_canva)
+        
+        # Configurar canvas
+        self.product_canva.configure(xscrollcommand=self.product_scrollbar.set)
+        
+        # Empaquetar en Orden
+        self.product_scrollbar.pack(side="bottom", fill="x")
+        self.product_canva.pack(side="top", fill="both", expand=True)  # Cambiado a fill="both"
+        
+        # Crear ventana del canvas
+        self.product_canva.create_window((0,0), window=self.product_list_frame, anchor="nw")
+        
+        # Configurar los eventos
+        self.product_list_frame.bind("<Configure>", self.on_product_frame_configure)
         self.product_vars = {}
         self.render_product_checkboxes(self.productos)
         
-        # Frame para los Chechboxes de proveedores
-        self.supplier_list_frame = tk.Frame(supplier_frame)
-        self.supplier_list_frame.pack(fill="x")
+        
+        
+        # -------------------------------------------------------------------------------------------------------------#
+        # -------------------------------------------------------------------------------------------------------------#
+        
+        # Contenedor para los checkboxes de proveedores con scroll
+        self.supplier_container = tk.Frame(supplier_frame)
+        self.supplier_container.pack(fill="x", padx=5, pady=2)
+        
+        # Canvas para proveedores
+        self.supplier_canvas = tk.Canvas(self.supplier_container, height=50)
+        self.supplier_canvas.pack_propagate(False)  # Evita que el canvas se encoja
+        
+        # Scrollbar horizontal para proveedores
+        self.supplier_scrollbar = tk.Scrollbar(self.supplier_container, orient="horizontal", command=self.supplier_canvas.xview)
+        
+        # Frame interno para los checkboxes de proveedores
+        self.supplier_list_frame = tk.Frame(self.supplier_canvas)
+        
+        # Configurar canvas
+        self.supplier_canvas.configure(xscrollcommand=self.supplier_scrollbar.set)
+        
+        # Empaquetar en orden correcto
+        self.supplier_scrollbar.pack(side="bottom", fill="x")
+        self.supplier_canvas.pack(side="top", fill="both", expand=True)  # Cambiado a fill="both"
+        
+        # Crear ventana del canvas
+        self.supplier_canvas.create_window((0,0), window=self.supplier_list_frame, anchor="nw")
+        
+        # Configurar eventos
+        self.supplier_list_frame.bind("<Configure>", self.on_supplier_frame_configure)
         self.supplier_vars = {}
         self.render_supplier_checkboxes(self.suppliers)
 
+        # -------------------------------------------------------------------------------------------------------------#
+        # -------------------------------------------------------------------------------------------------------------#
+        
         tk.Button(self, text= "Generar Tabla comparativa", command= self.generate_table).pack(pady=10)
+        
+        
+        # -------------------------------------------------------------------------------------------------------------#
+        # -------------------------------------------------------------------------------------------------------------#
         
         # Contenedor principal para la tabla y scrollbars
         self.table_container = tk.Frame(self)
@@ -93,6 +159,8 @@ class ComparativeView(tk.Toplevel):
         self.table_frame.bind("<Configure>", self.on_frame_configure)
         self.table_canvas.bind("<Configure>", self.on_canvas_configure)
         
+    # -------------------------------------------------------------------------------------------------------------#
+    # -------------------------------------------------------------------------------------------------------------#
     
     def update_product_list(self, event = None):
         query = self.product_search_var.get().lower()
@@ -149,6 +217,24 @@ class ComparativeView(tk.Toplevel):
         width = event.width if event else self.table_canvas.winfo_width()
         self.table_canvas.itemconfig(self.table_canvas.find_withtag("all")[0], width=width)
     
+    def on_supplier_frame_configure(self, event=None):
+        """Actualiza la región de scroll del canvas de proveedores"""
+        self.supplier_canvas.configure(scrollregion=self.supplier_canvas.bbox("all"))
+        # Ajustar la altura del canvas al contenido
+        bbox = self.supplier_canvas.bbox("all")
+        if bbox:
+            _, _, _, height = bbox
+            self.supplier_canvas.configure(height=min(50, height))
+    
+    def on_product_frame_configure(self, event= None):
+        """ Actualiza la region de Scroll del canvas de productos"""
+        self.product_canva.configure(scrollregion=self.product_canva.bbox("all"))
+        # Ajusta la altura del canvas al contenido
+        bbox = self.product_canva.bbox("all")
+        if bbox:
+            _,_,_, height = bbox
+            self.product_canva.configure(height=min(50, height))
+        
     def generate_table(self):
         """Genera la tabla para ingresar precios y timpos por proveedor / producto"""
         
